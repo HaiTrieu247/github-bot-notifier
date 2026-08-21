@@ -1,0 +1,33 @@
+# docker-compose.staging.yml
+# Usage: docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d
+
+services:
+
+  bot:
+    environment:
+      APP_ENV: staging
+      LOG_LEVEL: DEBUG
+    # Remove host port — Nginx fronts the service
+    ports: []
+    expose:
+      - "8000"
+
+  postgres:
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      bot:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.staging.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+      - ./nginx/certbot/www:/var/www/certbot:ro
+    networks:
+      - bot_network
