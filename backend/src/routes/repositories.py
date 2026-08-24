@@ -12,8 +12,13 @@ from src.services.repository import (
     RepositoryNotFoundError,
     RepositoryService,
 )
+from src.routes.auth import get_current_admin
 
-router = APIRouter(prefix="/api/v1/repositories", tags=["Repositories"])
+router = APIRouter(
+    prefix="/api/v1/repositories",
+    tags=["Repositories"],
+    dependencies=[Depends(get_current_admin)]
+)
 
 
 # ── Dependency: build service via DI ─────────────────────────────────────────
