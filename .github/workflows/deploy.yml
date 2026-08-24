@@ -19,7 +19,11 @@ jobs:
           script: |
             set -e
 
-            echo "=== Pulling latest code ==="
+            echo "=== Clone or pull latest code ==="
+            if [ ! -d "${{ secrets.VPS_PROJECT_PATH }}/.git" ]; then
+              echo "Repo not found — cloning for the first time"
+              git clone https://github.com/${{ github.repository }}.git ${{ secrets.VPS_PROJECT_PATH }}
+            fi
             cd ${{ secrets.VPS_PROJECT_PATH }}
             git pull origin main
 
