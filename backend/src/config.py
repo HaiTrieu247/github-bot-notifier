@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     app_env: str = "production"
     log_level: str = "INFO"
     port: int = 8000
+    
+    # ── Security ─────────────────────────────────────────────────────────────
+    admin_totp_secret: str | None = None
+    admin_jwt_secret: str = "supersecret-jwt-key-replace-in-production"
 
     @property
     def is_production(self) -> bool:

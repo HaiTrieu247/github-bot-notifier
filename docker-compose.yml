@@ -23,6 +23,10 @@ services:
       GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
       GITHUB_REPOSITORIES: ${GITHUB_REPOSITORIES:-}
 
+      # Security
+      ADMIN_TOTP_SECRET: ${ADMIN_TOTP_SECRET:-}
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET:-}
+
     ports:
       - "8000:8000"
     healthcheck:

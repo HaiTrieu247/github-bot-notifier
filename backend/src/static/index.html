@@ -112,25 +112,40 @@
     .status-dot.ok { background: var(--success); box-shadow: 0 0 8px var(--success); }
     .status-dot.error { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
 
-    /* ── Alert banner ── */
+    /* ── Alert banner (Toast) ── */
     #alert-banner {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 1000;
       display: none;
       align-items: center;
-      gap: 10px;
-      padding: 12px 16px;
+      gap: 12px;
+      padding: 14px 20px;
       border-radius: var(--radius-sm);
       font-size: 14px;
-      margin-bottom: 24px;
+      font-weight: 500;
       border: 1px solid transparent;
-      animation: slideIn 0.3s ease;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      animation: slideInToast 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
+    
+    #alert-banner.hide {
+      animation: slideOutToast 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
     #alert-banner.success { background: #0f291e; border-color: #34d39940; color: var(--success); }
     #alert-banner.error   { background: #291414; border-color: #f8717140; color: var(--danger); }
     #alert-banner.info    { background: #131a2e; border-color: var(--border-glow); color: var(--accent2); }
 
-    @keyframes slideIn {
-      from { opacity: 0; transform: translateY(-8px); }
-      to   { opacity: 1; transform: translateY(0); }
+    @keyframes slideInToast {
+      from { opacity: 0; transform: translateX(120%); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    
+    @keyframes slideOutToast {
+      from { opacity: 1; transform: translateX(0); }
+      to   { opacity: 0; transform: translateX(120%); }
     }
 
     /* ── Cards ── */
@@ -357,9 +372,118 @@
     @keyframes shimmer {
       to { background-position: -200% 0; }
     }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      width: 90%;
+      max-width: 400px;
+      box-shadow: var(--shadow);
+      transform: translateY(20px) scale(0.95);
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .modal-overlay.active .modal {
+      transform: translateY(0) scale(1);
+    }
+    .modal-header {
+      margin-bottom: 12px;
+    }
+    .modal-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .modal-body {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+    }
+    
+    /* ── Login Overlay ── */
+    #login-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      transition: opacity 0.3s;
+    }
+    #login-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .login-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+      width: 100%;
+      max-width: 360px;
+      box-shadow: var(--shadow);
+      text-align: center;
+    }
+    .login-box h2 {
+      margin-bottom: 8px;
+      font-size: 20px;
+    }
+    .login-box p {
+      color: var(--text-muted);
+      font-size: 13px;
+      margin-bottom: 24px;
+    }
+    .login-box input {
+      text-align: center;
+      letter-spacing: 0.5em;
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
   </style>
 </head>
 <body>
+
+  <!-- ── Login Overlay ── -->
+  <div id="login-overlay">
+    <div class="login-box">
+      <h2>Admin Login</h2>
+      <p>Enter 6-digit Authenticator code</p>
+      <form id="login-form" onsubmit="event.preventDefault(); doLogin();">
+        <input type="text" id="totp_code" placeholder="000000" maxlength="6" autocomplete="one-time-code" required autofocus />
+        <button type="submit" class="btn-primary" id="btn-login" style="width: 100%; justify-content: center;">
+          Authenticate
+        </button>
+      </form>
+    </div>
+  </div>
+
 <div class="container">
 
   <!-- ── Header ── -->
@@ -377,6 +501,22 @@
 
   <!-- ── Alert Banner ── -->
   <div id="alert-banner" role="alert"></div>
+
+  <!-- ── Confirm Modal ── -->
+  <div id="confirm-modal-overlay" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Confirm Action</h3>
+      </div>
+      <div class="modal-body" id="confirm-modal-body">
+        Are you sure?
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="confirm-btn-cancel">Cancel</button>
+        <button class="btn-primary" id="confirm-btn-ok">Confirm</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ── Discord Config ── -->
   <div class="card">
@@ -489,10 +629,63 @@
     const el = document.getElementById('alert-banner');
     const icons = { success: '✅', error: '❌', info: 'ℹ️' };
     el.innerHTML = `<span>${icons[type]}</span><span>${msg}</span>`;
-    el.className = type;
+    el.className = type; // Reset classes to just the type, removing .hide
     el.style.display = 'flex';
+    
     clearTimeout(el._t);
-    el._t = setTimeout(() => { el.style.display = 'none'; }, 5000);
+    clearTimeout(el._hideT);
+    
+    el._t = setTimeout(() => {
+      el.classList.add('hide');
+      el._hideT = setTimeout(() => {
+        el.style.display = 'none';
+        el.classList.remove('hide');
+      }, 400); // Wait for slideOutToast animation
+    }, 5000);
+  }
+
+  let authToken = localStorage.getItem('admin_token');
+
+  function getAuthHeaders() {
+    return {
+      'Content-Type': 'application/json',
+      ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+    };
+  }
+
+  function handleAuthError(res) {
+    if (res.status === 401 || res.status === 403) {
+      document.getElementById('login-overlay').classList.remove('hidden');
+      document.getElementById('totp_code').focus();
+      return true;
+    }
+    return false;
+  }
+
+  async function doLogin() {
+    const code = document.getElementById('totp_code').value;
+    setLoading('btn-login', true);
+    try {
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ totp_code: code })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Login failed');
+      }
+      const data = await res.json();
+      authToken = data.access_token;
+      localStorage.setItem('admin_token', authToken);
+      document.getElementById('login-overlay').classList.add('hidden');
+      document.getElementById('totp_code').value = '';
+      loadConfig();
+    } catch (err) {
+      showAlert(err.message, 'error');
+    } finally {
+      setLoading('btn-login', false);
+    }
   }
 
   function setLoading(btnId, loading) {
@@ -534,7 +727,8 @@
   // ── Load config ───────────────────────────────────────────────────────────
   async function loadConfig() {
     try {
-      const res = await fetch(`${API_BASE}/config/raw`);
+      const res = await fetch(`${API_BASE}/config/raw`, { headers: getAuthHeaders() });
+      if (handleAuthError(res)) return;
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       for (const key of FIELDS) {
@@ -557,9 +751,10 @@
     try {
       const res = await fetch(`${API_BASE}/config`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(payload),
       });
+      if (handleAuthError(res)) return;
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.detail || `HTTP ${res.status}`);
@@ -572,12 +767,42 @@
     }
   }
 
+  // ── Custom Confirm ────────────────────────────────────────────────────────
+  function showConfirm(title, message) {
+    return new Promise((resolve) => {
+      const overlay = document.getElementById('confirm-modal-overlay');
+      const titleEl = overlay.querySelector('.modal-title');
+      const bodyEl = document.getElementById('confirm-modal-body');
+      const btnCancel = document.getElementById('confirm-btn-cancel');
+      const btnOk = document.getElementById('confirm-btn-ok');
+
+      if (title) titleEl.textContent = title;
+      bodyEl.textContent = message;
+
+      const cleanup = () => {
+        overlay.classList.remove('active');
+        btnCancel.removeEventListener('click', onCancel);
+        btnOk.removeEventListener('click', onOk);
+      };
+
+      const onCancel = () => { cleanup(); resolve(false); };
+      const onOk = () => { cleanup(); resolve(true); };
+
+      btnCancel.addEventListener('click', onCancel);
+      btnOk.addEventListener('click', onOk);
+
+      overlay.classList.add('active');
+    });
+  }
+
   // ── Reload bot ────────────────────────────────────────────────────────────
   async function reloadBot() {
-    if (!confirm('Reload the Discord bot? It will briefly disconnect and reconnect.')) return;
+    const confirmed = await showConfirm('Reload Bot', 'Reload the Discord bot? It will briefly disconnect and reconnect.');
+    if (!confirmed) return;
     setLoading('btn-reload', true);
     try {
-      const res = await fetch(`${API_BASE}/config/reload`, { method: 'POST' });
+      const res = await fetch(`${API_BASE}/config/reload`, { method: 'POST', headers: getAuthHeaders() });
+      if (handleAuthError(res)) return;
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.detail || `HTTP ${res.status}`);
@@ -593,7 +818,12 @@
   }
 
   // ── Init ──────────────────────────────────────────────────────────────────
-  loadConfig();
+  if (!authToken) {
+    document.getElementById('login-overlay').classList.remove('hidden');
+  } else {
+    document.getElementById('login-overlay').classList.add('hidden');
+    loadConfig();
+  }
   checkHealth();
   setInterval(checkHealth, 30_000);
 </script>

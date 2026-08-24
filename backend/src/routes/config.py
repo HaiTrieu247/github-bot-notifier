@@ -4,14 +4,15 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
 from src.services import config_service
+from src.routes.auth import get_current_admin
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/config", tags=["Config"])
+router = APIRouter(prefix="/api/v1/config", tags=["Config"], dependencies=[Depends(get_current_admin)])
 
 
 class ConfigUpdateRequest(BaseModel):

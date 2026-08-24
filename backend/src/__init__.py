@@ -43,6 +43,23 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from src.bot.client import start_bot
     await start_bot()
 
+    # Generate a temporary TOTP secret if not configured
+    if not Config.admin_totp_secret:
+        import pyotp
+        Config.admin_totp_secret = pyotp.random_base32()
+        setup_uri = pyotp.totp.TOTP(Config.admin_totp_secret).provisioning_uri(
+            name="admin@github-bot", issuer_name="GitHub Bot Admin"
+        )
+        logger.warning(
+            "\n" + "="*80 + "\n"
+            "ADMIN_TOTP_SECRET is not set in .env!\n"
+            "A temporary secret has been generated for this session.\n"
+            f"Secret: {Config.admin_totp_secret}\n"
+            f"Setup URI: {setup_uri}\n"
+            "Please add this secret to your authenticator app, or set it in .env for persistence.\n"
+            + "="*80 + "\n"
+        )
+
     yield
 
     logger.info("Shutting down GitHub Discord Bot")
@@ -71,11 +88,13 @@ from src.routes.webhook import router as webhook_router
 from src.routes.health import router as health_router
 from src.routes.repositories import router as repositories_router
 from src.routes.config import router as config_router
+from src.routes.auth import router as auth_router
 
 app.include_router(health_router)
 app.include_router(webhook_router)
 app.include_router(repositories_router)
 app.include_router(config_router)
+app.include_router(auth_router)
 
 # ── Static Files (Admin Dashboard) ────────────────────────────────────────────
 _static_dir = Path(__file__).parent / "static"
