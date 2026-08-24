@@ -5,27 +5,24 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
     environment:
-      # Discord
-      DISCORD_TOKEN: ${DISCORD_TOKEN}
-      DISCORD_GUILD_ID: ${DISCORD_GUILD_ID}
-      DISCORD_DEFAULT_CHANNEL_ID: ${DISCORD_DEFAULT_CHANNEL_ID}
-      DISCORD_REPO_CHANNEL_MAP: ${DISCORD_REPO_CHANNEL_MAP:-}
-
-      # GitHub
-      GITHUB_TOKEN: ${GITHUB_TOKEN}
-      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET}
-      GITHUB_REPOSITORIES: ${GITHUB_REPOSITORIES}
-
-      # Database
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      # Database (required — cloud NeonDB)
+      DATABASE_URL: ${DATABASE_URL}
 
       # App
       APP_ENV: ${APP_ENV:-production}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+      # Discord/GitHub config is stored in DB and managed via Admin Dashboard.
+      # These env vars are used only as initial seed values on first run.
+      DISCORD_TOKEN: ${DISCORD_TOKEN:-}
+      DISCORD_GUILD_ID: ${DISCORD_GUILD_ID:-}
+      DISCORD_DEFAULT_CHANNEL_ID: ${DISCORD_DEFAULT_CHANNEL_ID:-}
+      DISCORD_REPO_CHANNEL_MAP: ${DISCORD_REPO_CHANNEL_MAP:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+      GITHUB_REPOSITORIES: ${GITHUB_REPOSITORIES:-}
+
     ports:
       - "8000:8000"
     healthcheck:
@@ -36,26 +33,6 @@ services:
       start_period: 20s
     networks:
       - bot_network
-
-  postgres:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-github_bot}
-      POSTGRES_USER: ${POSTGRES_USER:-github_bot}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-github_bot} -d ${POSTGRES_DB:-github_bot}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - bot_network
-
-volumes:
-  postgres_data:
 
 networks:
   bot_network:

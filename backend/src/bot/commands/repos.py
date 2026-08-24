@@ -7,15 +7,14 @@ from datetime import datetime, timezone
 import discord
 from discord import app_commands
 
-from src.config import Config
-
 
 def register(tree: app_commands.CommandTree) -> None:
 
     @tree.command(name="repos", description="List all monitored GitHub repositories")
     async def repos(interaction: discord.Interaction) -> None:
         await interaction.response.defer(thinking=True)
-        monitored = Config.monitored_repositories
+        from src.services import config_service
+        monitored = await config_service.get_monitored_repositories()
 
         embed = discord.Embed(
             title="Monitored Repositories",
@@ -24,7 +23,7 @@ def register(tree: app_commands.CommandTree) -> None:
         )
 
         if not monitored:
-            embed.description = "No repositories configured.\nSet `GITHUB_REPOSITORIES` in your `.env` file."
+            embed.description = "No repositories configured.\nUse the Admin Dashboard at `/admin` to add repositories."
         else:
             lines = []
             for i, full_name in enumerate(monitored, 1):

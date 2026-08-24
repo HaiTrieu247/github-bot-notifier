@@ -1,4 +1,8 @@
-"""Database engine, session factory, init_db — Blueprint pattern (no Alembic)."""
+"""Database engine, session factory, init_db — Blueprint pattern (no Alembic).
+
+Uses NeonDB (cloud PostgreSQL) via DATABASE_URL from environment.
+SSL is required for NeonDB connections.
+"""
 
 from __future__ import annotations
 
@@ -12,12 +16,45 @@ from src.config import Config
 
 logger = logging.getLogger(__name__)
 
+def _normalize_db_url(url: str) -> tuple[str, dict]:
+    """
+    Normalize DATABASE_URL for asyncpg:
+    - Convert 'postgresql://' or 'postgres://' to 'postgresql+asyncpg://'
+    - Strip query params asyncpg doesn't support (sslmode, channel_binding)
+    - Return (clean_url, connect_args)
+    """
+    # Normalize scheme
+    if url.startswith("postgresql://") or url.startswith("postgres://"):
+        url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+
+    # Split off query string
+    base, _, query = url.partition("?")
+
+    connect_args: dict = {}
+    if query:
+        # Parse params, pick out what asyncpg needs
+        params = dict(p.split("=", 1) for p in query.split("&") if "=" in p)
+        ssl_mode = params.get("sslmode", "")
+        if ssl_mode in ("require", "verify-ca", "verify-full"):
+            connect_args["ssl"] = "require"
+
+    # Also detect NeonDB host even without sslmode
+    if "neon.tech" in base and "ssl" not in connect_args:
+        connect_args["ssl"] = "require"
+
+    return base, connect_args
+
+
+_clean_url, _connect_args = _normalize_db_url(Config.database_url)
+
 engine = create_async_engine(
-    Config.database_url,
+    _clean_url,
     echo=Config.app_env == "development",
     pool_pre_ping=True,
     pool_size=5,
     max_overflow=10,
+    connect_args=_connect_args,
 )
 
 AsyncSessionLocal: async_sessionmaker[AsyncSession] = async_sessionmaker(

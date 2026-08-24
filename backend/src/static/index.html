@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GitHub Bot — Admin Dashboard</title>
+  <meta name="description" content="Admin dashboard for managing GitHub Discord Bot configuration at runtime." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:          #0d0f14;
+      --surface:     #13161e;
+      --surface2:    #1a1e28;
+      --border:      #252936;
+      --border-glow: #5b6ef633;
+      --accent:      #5b6ef6;
+      --accent2:     #a78bfa;
+      --success:     #34d399;
+      --warning:     #fbbf24;
+      --danger:      #f87171;
+      --text:        #e2e8f0;
+      --text-muted:  #64748b;
+      --text-dim:    #94a3b8;
+      --radius:      12px;
+      --radius-sm:   8px;
+      --shadow:      0 4px 24px #0007;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    /* ── Animated mesh background ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 50% at 20% 10%, #5b6ef615 0%, transparent 60%),
+        radial-gradient(ellipse 50% 40% at 80% 90%, #a78bfa10 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Layout ── */
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 32px 24px 64px;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+
+    .logo {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      font-size: 22px;
+      box-shadow: 0 0 24px #5b6ef640;
+      flex-shrink: 0;
+    }
+
+    .header-text h1 {
+      font-size: 22px;
+      font-weight: 700;
+      background: linear-gradient(90deg, #fff 0%, var(--accent2) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .header-text p {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .header-status {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      transition: background 0.3s;
+    }
+    .status-dot.ok { background: var(--success); box-shadow: 0 0 8px var(--success); }
+    .status-dot.error { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+
+    /* ── Alert banner ── */
+    #alert-banner {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      margin-bottom: 24px;
+      border: 1px solid transparent;
+      animation: slideIn 0.3s ease;
+    }
+    #alert-banner.success { background: #0f291e; border-color: #34d39940; color: var(--success); }
+    #alert-banner.error   { background: #291414; border-color: #f8717140; color: var(--danger); }
+    #alert-banner.info    { background: #131a2e; border-color: var(--border-glow); color: var(--accent2); }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      margin-bottom: 20px;
+      transition: border-color 0.25s;
+    }
+    .card:hover { border-color: #334; }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .card-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-sm);
+      display: grid;
+      place-items: center;
+      font-size: 17px;
+      flex-shrink: 0;
+    }
+    .card-icon.discord { background: #5865f222; }
+    .card-icon.github  { background: #ffffff12; }
+    .card-icon.system  { background: #a78bfa22; }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .card-subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* ── Form fields ── */
+    .field {
+      margin-bottom: 18px;
+    }
+    .field:last-child { margin-bottom: 0; }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 8px;
+    }
+
+    .input-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    input, textarea {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 14px;
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input:focus, textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--border-glow);
+    }
+    input::placeholder, textarea::placeholder {
+      color: var(--text-muted);
+    }
+    input[type="password"] {
+      font-family: monospace;
+      letter-spacing: 0.1em;
+    }
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+      line-height: 1.6;
+    }
+
+    .toggle-vis {
+      position: absolute;
+      right: 12px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 16px;
+      padding: 4px;
+      transition: color 0.2s;
+    }
+    .toggle-vis:hover { color: var(--text); }
+
+    .field-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 5px;
+    }
+
+    /* ── Grid ── */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 600px) {
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+
+    /* ── Buttons ── */
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 10px 20px;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #4a5be0);
+      color: #fff;
+      box-shadow: 0 2px 12px #5b6ef630;
+    }
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px #5b6ef650;
+    }
+    .btn-primary:active { transform: translateY(0); }
+
+    .btn-secondary {
+      background: var(--surface2);
+      color: var(--text-dim);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+
+    .btn-danger {
+      background: #291414;
+      color: var(--danger);
+      border: 1px solid #f8717130;
+    }
+    .btn-danger:hover {
+      background: #f8717120;
+      border-color: var(--danger);
+    }
+
+    .btn-success {
+      background: #0f291e;
+      color: var(--success);
+      border: 1px solid #34d39930;
+    }
+    .btn-success:hover {
+      background: #34d39920;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    /* ── Spinner ── */
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid #fff4;
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      margin-top: 48px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    footer a { color: var(--accent2); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    /* ── Loading skeleton ── */
+    .skeleton {
+      background: linear-gradient(90deg, var(--surface2) 25%, var(--border) 50%, var(--surface2) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 6px;
+      height: 38px;
+    }
+    @keyframes shimmer {
+      to { background-position: -200% 0; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- ── Header ── -->
+  <header>
+    <div class="logo">⚡</div>
+    <div class="header-text">
+      <h1>GitHub Bot Admin</h1>
+      <p>Runtime configuration — no Docker restart needed</p>
+    </div>
+    <div class="header-status">
+      <div class="status-dot" id="health-dot"></div>
+      <span id="health-label">Checking…</span>
+    </div>
+  </header>
+
+  <!-- ── Alert Banner ── -->
+  <div id="alert-banner" role="alert"></div>
+
+  <!-- ── Discord Config ── -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon discord">🎮</div>
+      <div>
+        <div class="card-title">Discord Configuration</div>
+        <div class="card-subtitle">Bot token, guild, and channel mapping</div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="discord_token">Bot Token</label>
+      <div class="input-wrap">
+        <input type="password" id="discord_token" placeholder="MTxxxxx.Gxxxxx.xxxxxx" autocomplete="off" />
+        <button class="toggle-vis" onclick="toggleVis('discord_token')" title="Show/hide" type="button">👁</button>
+      </div>
+      <div class="field-hint">Discord bot token — keep this secret. Changes require "Reload Bot".</div>
+    </div>
+
+    <div class="grid-2">
+      <div class="field">
+        <label for="discord_guild_id">Guild ID</label>
+        <input type="text" id="discord_guild_id" placeholder="123456789012345678" />
+        <div class="field-hint">Server ID (right-click server → Copy ID)</div>
+      </div>
+      <div class="field">
+        <label for="discord_default_channel_id">Default Channel ID</label>
+        <input type="text" id="discord_default_channel_id" placeholder="123456789012345678" />
+        <div class="field-hint">Fallback channel for repos without a mapping</div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="discord_repo_channel_map">Repo → Channel Map</label>
+      <textarea id="discord_repo_channel_map" placeholder="owner/repo:channel_id,owner/repo2:channel_id2"></textarea>
+      <div class="field-hint">Comma-separated pairs. Example: <code>Kens0107/backend:111,HaiTrieu247/frontend:222</code></div>
+    </div>
+  </div>
+
+  <!-- ── GitHub Config ── -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon github">🐙</div>
+      <div>
+        <div class="card-title">GitHub Configuration</div>
+        <div class="card-subtitle">Personal access token, webhook secret, repositories</div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="github_token">GitHub Token</label>
+      <div class="input-wrap">
+        <input type="password" id="github_token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxx" autocomplete="off" />
+        <button class="toggle-vis" onclick="toggleVis('github_token')" title="Show/hide" type="button">👁</button>
+      </div>
+      <div class="field-hint">Personal access token with <code>repo</code> scope</div>
+    </div>
+
+    <div class="field">
+      <label for="github_webhook_secret">Webhook Secret</label>
+      <div class="input-wrap">
+        <input type="password" id="github_webhook_secret" placeholder="your-webhook-secret" autocomplete="off" />
+        <button class="toggle-vis" onclick="toggleVis('github_webhook_secret')" title="Show/hide" type="button">👁</button>
+      </div>
+      <div class="field-hint">Must match the secret configured on GitHub webhook settings</div>
+    </div>
+
+    <div class="field">
+      <label for="github_repositories">Monitored Repositories</label>
+      <textarea id="github_repositories" placeholder="owner/repo1,owner/repo2,owner/repo3"></textarea>
+      <div class="field-hint">Comma-separated list of <code>owner/repo</code> to monitor</div>
+    </div>
+  </div>
+
+  <!-- ── Actions ── -->
+  <div class="btn-row">
+    <button class="btn-primary" id="btn-save" onclick="saveConfig()">
+      <span>💾</span> Save Config
+    </button>
+    <button class="btn-success" id="btn-reload" onclick="reloadBot()">
+      <span>🔄</span> Reload Bot
+    </button>
+    <button class="btn-secondary" onclick="loadConfig()">
+      <span>↩</span> Refresh
+    </button>
+    <button class="btn-secondary" onclick="window.open('/docs', '_blank')">
+      <span>📖</span> API Docs
+    </button>
+  </div>
+
+</div>
+
+<footer>
+  <p>GitHub Discord Bot · <a href="/health" target="_blank">Health Check</a> · <a href="/docs" target="_blank">API Docs</a></p>
+</footer>
+
+<script>
+  // ── Config ────────────────────────────────────────────────────────────────
+  const API_BASE = '/api/v1';
+  const FIELDS = [
+    'discord_token', 'discord_guild_id', 'discord_default_channel_id',
+    'discord_repo_channel_map', 'github_token', 'github_webhook_secret',
+    'github_repositories',
+  ];
+  const SENSITIVE = new Set(['discord_token', 'github_token', 'github_webhook_secret']);
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function showAlert(msg, type = 'info') {
+    const el = document.getElementById('alert-banner');
+    const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+    el.innerHTML = `<span>${icons[type]}</span><span>${msg}</span>`;
+    el.className = type;
+    el.style.display = 'flex';
+    clearTimeout(el._t);
+    el._t = setTimeout(() => { el.style.display = 'none'; }, 5000);
+  }
+
+  function setLoading(btnId, loading) {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    btn.disabled = loading;
+    if (loading) {
+      btn._orig = btn.innerHTML;
+      btn.innerHTML = '<div class="spinner"></div> Working…';
+    } else {
+      btn.innerHTML = btn._orig || btn.innerHTML;
+    }
+  }
+
+  function toggleVis(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.type = el.type === 'password' ? 'text' : 'password';
+  }
+
+  // ── Health check ──────────────────────────────────────────────────────────
+  async function checkHealth() {
+    try {
+      const res = await fetch('/health');
+      const data = await res.json();
+      const dot = document.getElementById('health-dot');
+      const label = document.getElementById('health-label');
+      const isOk = data.status === 'ok';
+      dot.className = 'status-dot ' + (isOk ? 'ok' : 'error');
+      label.textContent = isOk
+        ? `DB ${data.database} · Discord ${data.discord}`
+        : `Degraded — DB: ${data.database}`;
+    } catch {
+      document.getElementById('health-dot').className = 'status-dot error';
+      document.getElementById('health-label').textContent = 'Unreachable';
+    }
+  }
+
+  // ── Load config ───────────────────────────────────────────────────────────
+  async function loadConfig() {
+    try {
+      const res = await fetch(`${API_BASE}/config/raw`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      for (const key of FIELDS) {
+        const el = document.getElementById(key);
+        if (el) el.value = data[key] ?? '';
+      }
+    } catch (err) {
+      showAlert(`Failed to load config: ${err.message}`, 'error');
+    }
+  }
+
+  // ── Save config ───────────────────────────────────────────────────────────
+  async function saveConfig() {
+    setLoading('btn-save', true);
+    const payload = {};
+    for (const key of FIELDS) {
+      const el = document.getElementById(key);
+      if (el) payload[key] = el.value;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/config`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || `HTTP ${res.status}`);
+      }
+      showAlert('Configuration saved successfully! Webhook events will use the new values immediately.', 'success');
+    } catch (err) {
+      showAlert(`Save failed: ${err.message}`, 'error');
+    } finally {
+      setLoading('btn-save', false);
+    }
+  }
+
+  // ── Reload bot ────────────────────────────────────────────────────────────
+  async function reloadBot() {
+    if (!confirm('Reload the Discord bot? It will briefly disconnect and reconnect.')) return;
+    setLoading('btn-reload', true);
+    try {
+      const res = await fetch(`${API_BASE}/config/reload`, { method: 'POST' });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      showAlert(`🤖 ${data.message}`, 'success');
+      setTimeout(checkHealth, 3000);
+    } catch (err) {
+      showAlert(`Reload failed: ${err.message}`, 'error');
+    } finally {
+      setLoading('btn-reload', false);
+    }
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  loadConfig();
+  checkHealth();
+  setInterval(checkHealth, 30_000);
+</script>
+</body>
+</html>

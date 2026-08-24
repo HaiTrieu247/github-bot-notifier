@@ -1,4 +1,7 @@
-"""Service: Discord notification orchestration (class-based, blueprint DI pattern)."""
+"""Service: Discord notification orchestration (class-based, blueprint DI pattern).
+
+Uses config_service for dynamic channel lookups instead of static Config singleton.
+"""
 
 from __future__ import annotations
 
@@ -25,14 +28,14 @@ class NotificationService:
     async def notify_push(self, event: PushEvent) -> None:
         from src.bot.client import get_bot
         from src.bot.notifications import build_push_embed, send_to_channel
+        from src.services import config_service
 
         bot = get_bot()
         if bot is None:
             logger.warning("Discord bot not running — skipping push notification")
             return
 
-        from src.config import Config
-        channel_id = Config.get_channel_id(event.repo_full_name)
+        channel_id = await config_service.get_channel_id(event.repo_full_name)
         if not channel_id:
             logger.warning("No channel configured for %s", event.repo_full_name)
             return
@@ -43,6 +46,7 @@ class NotificationService:
     async def notify_workflow(self, event: WorkflowRunEvent) -> None:
         from src.bot.client import get_bot
         from src.bot.notifications import build_workflow_embed, send_to_channel
+        from src.services import config_service
 
         bot = get_bot()
         if bot is None:
@@ -52,8 +56,7 @@ class NotificationService:
         if embed is None:
             return  # queued / in_progress — no notification
 
-        from src.config import Config
-        channel_id = Config.get_channel_id(event.repo_full_name)
+        channel_id = await config_service.get_channel_id(event.repo_full_name)
         if not channel_id:
             logger.warning("No channel configured for %s", event.repo_full_name)
             return
@@ -63,6 +66,7 @@ class NotificationService:
     async def notify_pull_request(self, event: PullRequestEvent) -> None:
         from src.bot.client import get_bot
         from src.bot.notifications import build_pr_embed, send_to_channel
+        from src.services import config_service
 
         bot = get_bot()
         if bot is None:
@@ -72,8 +76,7 @@ class NotificationService:
         if embed is None:
             return
 
-        from src.config import Config
-        channel_id = Config.get_channel_id(event.repo_full_name)
+        channel_id = await config_service.get_channel_id(event.repo_full_name)
         if not channel_id:
             logger.warning("No channel configured for %s", event.repo_full_name)
             return
@@ -83,6 +86,7 @@ class NotificationService:
     async def notify_deployment_status(self, event: DeploymentStatusEvent) -> None:
         from src.bot.client import get_bot
         from src.bot.notifications import build_deployment_status_embed, send_to_channel
+        from src.services import config_service
 
         bot = get_bot()
         if bot is None:
@@ -92,8 +96,7 @@ class NotificationService:
         if embed is None:
             return
 
-        from src.config import Config
-        channel_id = Config.get_channel_id(event.repo_full_name)
+        channel_id = await config_service.get_channel_id(event.repo_full_name)
         if not channel_id:
             logger.warning("No channel configured for %s", event.repo_full_name)
             return

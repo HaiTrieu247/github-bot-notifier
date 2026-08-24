@@ -18,8 +18,18 @@ USER appuser
 
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
-# Blueprint CMD pattern (production mode)
-CMD ["uvicorn", "src:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+# Production: gunicorn manages the process, UvicornWorker handles async.
+# Workers=1 is intentional — Discord bot runs as a singleton background thread.
+CMD ["gunicorn", "src:app", \
+     "--worker-class", "uvicorn.workers.UvicornWorker", \
+     "--workers", "1", \
+     "--bind", "0.0.0.0:8000", \
+     "--timeout", "120", \
+     "--graceful-timeout", "30", \
+     "--keep-alive", "5", \
+     "--access-logfile", "-", \
+     "--error-logfile", "-", \
+     "--log-level", "info"]

@@ -9,7 +9,6 @@ from typing import Optional
 import discord
 from discord import app_commands
 
-from src.config import Config
 from src.db.main import AsyncSessionLocal
 from src.repository.event import EventRepo
 from src.repository.repository import RepositoryRepo
@@ -63,7 +62,8 @@ def register(tree: app_commands.CommandTree) -> None:
             repo_id: Optional[str] = None
             if repository:
                 full_name: Optional[str] = None
-                for r in Config.monitored_repositories:
+                from src.services import config_service
+                for r in await config_service.get_monitored_repositories():
                     if r.split("/")[-1] == repository or r == repository:
                         full_name = r
                         break

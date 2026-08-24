@@ -9,7 +9,6 @@ from typing import Optional
 import discord
 from discord import app_commands
 
-from src.config import Config
 from src.db.main import AsyncSessionLocal
 from src.github.client import GitHubAPIError, get_github_client
 from src.repository.repository import RepositoryRepo
@@ -29,9 +28,11 @@ def register(tree: app_commands.CommandTree) -> None:
     ) -> None:
         await interaction.response.defer(thinking=True)
 
+        from src.services import config_service
+        all_repos = await config_service.get_monitored_repositories()
         repos_to_check: list[str] = []
         if repository:
-            for r in Config.monitored_repositories:
+            for r in all_repos:
                 if r.split("/")[-1] == repository or r == repository:
                     repos_to_check = [r]
                     break
@@ -41,13 +42,13 @@ def register(tree: app_commands.CommandTree) -> None:
                 )
                 return
         else:
-            repos_to_check = Config.monitored_repositories
+            repos_to_check = all_repos
 
         if not repos_to_check:
             await interaction.followup.send("No repositories configured.", ephemeral=True)
             return
 
-        github = get_github_client()
+        github = await get_github_client()
         results = []
 
         for full_name in repos_to_check:

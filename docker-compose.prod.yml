@@ -1,0 +1,32 @@
+# docker-compose.prod.yml
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Production override:
+#   - APP_ENV=production (disables /docs and /redoc)
+#   - Bot port not exposed directly — Nginx fronts the service on port 8083
+#   - Nginx uses the same internal config as staging
+
+services:
+
+  bot:
+    environment:
+      APP_ENV: production
+      LOG_LEVEL: INFO
+    # Do NOT expose bot port directly in production
+    ports: []
+    expose:
+      - "8000"
+    restart: always
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: always
+    depends_on:
+      bot:
+        condition: service_healthy
+    ports:
+      - "8083:8083"
+    volumes:
+      - ./nginx/nginx.staging.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - bot_network

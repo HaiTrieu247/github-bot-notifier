@@ -47,7 +47,7 @@ class RepositoryService:
             return existing
 
         # Validate against GitHub API
-        github = get_github_client()
+        github = await get_github_client()
         try:
             repo_data = await github.get_repo(full_name)
         except GitHubAPIError as exc:

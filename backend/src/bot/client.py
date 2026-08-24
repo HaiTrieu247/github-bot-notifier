@@ -1,4 +1,8 @@
-"""Discord Bot client — runs in background thread, registers slash commands."""
+"""Discord Bot client — runs in background thread, registers slash commands.
+
+Bot is now dynamically configurable: token and guild_id are loaded from DB
+at runtime. Call restart_bot() after changing Discord config to reconnect.
+"""
 
 from __future__ import annotations
 
@@ -9,8 +13,6 @@ from typing import Optional
 
 import discord
 from discord import app_commands
-
-from src.config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +25,8 @@ class GitHubDiscordBot(discord.Client):
         self._ready_event = asyncio.Event()
 
     async def setup_hook(self) -> None:
-        guild_id = Config.discord_guild_id
+        from src.services import config_service
+        guild_id = await config_service.get_discord_guild_id()
         if guild_id:
             guild = discord.Object(id=guild_id)
             self.tree.copy_global_to(guild=guild)
@@ -57,12 +60,21 @@ def get_bot() -> Optional[GitHubDiscordBot]:
     return _bot
 
 
-def start_bot() -> None:
-    """Start the Discord bot in a background thread with its own event loop."""
+async def start_bot() -> None:
+    """Start the Discord bot in a background thread with its own event loop.
+    Token is loaded from DB (config_service). If no token is set, bot is skipped.
+    """
+    await _start_bot_async()
+
+
+async def _start_bot_async() -> None:
     global _bot, _bot_thread, _bot_loop
 
-    if not Config.discord_token:
-        logger.warning("DISCORD_TOKEN not set — Discord bot disabled")
+    from src.services import config_service
+    token = await config_service.get_discord_token()
+
+    if not token:
+        logger.warning("discord_token not configured in DB — Discord bot disabled")
         return
 
     _bot = GitHubDiscordBot()
@@ -72,11 +84,36 @@ def start_bot() -> None:
         global _bot_loop
         _bot_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(_bot_loop)
-        _bot_loop.run_until_complete(_bot.start(Config.discord_token))  # type: ignore[union-attr]
+        _bot_loop.run_until_complete(_bot.start(token))  # type: ignore[union-attr]
 
     _bot_thread = threading.Thread(target=_run, daemon=True, name="discord-bot")
     _bot_thread.start()
     logger.info("Discord bot thread started")
+
+
+async def stop_bot() -> None:
+    """Gracefully close the current bot instance."""
+    global _bot, _bot_thread, _bot_loop
+    if _bot and not _bot.is_closed():
+        logger.info("Stopping Discord bot for restart…")
+        if _bot_loop and _bot_loop.is_running():
+            future = asyncio.run_coroutine_threadsafe(_bot.close(), _bot_loop)
+            try:
+                future.result(timeout=10)
+            except Exception as exc:
+                logger.warning("Error closing bot: %s", exc)
+    _bot = None
+    _bot_thread = None
+    _bot_loop = None
+
+
+async def restart_bot() -> str:
+    """Stop current bot, reload config from DB, start fresh bot thread.
+    Returns status message.
+    """
+    await stop_bot()
+    await _start_bot_async()
+    return "Bot restarted with new configuration"
 
 
 def _register_commands(bot: GitHubDiscordBot) -> None:

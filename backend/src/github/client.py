@@ -7,8 +7,6 @@ from typing import Any, Optional
 
 import httpx
 
-from src.config import Config
-
 logger = logging.getLogger(__name__)
 
 GITHUB_API_BASE = "https://api.github.com"
@@ -26,7 +24,7 @@ class GitHubRateLimitError(GitHubAPIError):
 
 class GitHubClient:
     def __init__(self, token: Optional[str] = None) -> None:
-        self._token = token or Config.github_token
+        self._token = token or ""
         self._client = httpx.AsyncClient(
             base_url=GITHUB_API_BASE,
             headers=self._default_headers(),
@@ -120,8 +118,14 @@ class GitHubClient:
 _github_client: Optional[GitHubClient] = None
 
 
-def get_github_client() -> GitHubClient:
+async def get_github_client() -> GitHubClient:
+    """Return a GitHub client with the token loaded dynamically from DB."""
     global _github_client
-    if _github_client is None:
-        _github_client = GitHubClient()
+    from src.services import config_service
+    token = await config_service.get_github_token()
+    # Always create a fresh client if token may have changed
+    if _github_client is None or _github_client._token != token:
+        if _github_client is not None:
+            await _github_client.aclose()
+        _github_client = GitHubClient(token=token)
     return _github_client

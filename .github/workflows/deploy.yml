@@ -1,0 +1,48 @@
+name: Deploy Bot to Production
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+
+            echo "=== Pulling latest code ==="
+            cd ${{ secrets.VPS_PROJECT_PATH }}
+            git pull origin main
+
+            echo "=== Checking .env ==="
+            if [ ! -f .env ]; then
+              echo ".env not found — copying from /home/github-bot-prod/.env"
+              cp /home/github-bot-prod/.env .env
+            else
+              echo ".env already exists, skipping copy"
+            fi
+
+            echo "=== Rebuilding bot image ==="
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml build --no-cache bot
+
+            echo "=== Restarting bot (zero-downtime swap) ==="
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans
+
+            echo "=== Waiting for health check ==="
+            sleep 15
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
+
+            echo "=== Cleaning up old images & build cache ==="
+            docker image prune -f
+            docker builder prune -f
+
+            echo "=== Deploy complete! ==="

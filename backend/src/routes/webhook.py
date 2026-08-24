@@ -7,7 +7,6 @@ import logging
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.config import Config
 from src.db.main import AsyncSessionLocal
 from src.github.webhooks import verify_signature
 from src.repository.repository import RepositoryRepo
@@ -44,8 +43,10 @@ async def github_webhook(
 ) -> dict[str, str]:
     payload_bytes = await request.body()
 
-    # ── Signature verification ────────────────────────────────────────────────
-    if not verify_signature(payload_bytes, x_hub_signature_256, Config.github_webhook_secret):
+    # ── Signature verification (secret loaded dynamically from DB) ────────────
+    from src.services import config_service
+    webhook_secret = await config_service.get_github_webhook_secret()
+    if not verify_signature(payload_bytes, x_hub_signature_256, webhook_secret):
         logger.warning("Invalid webhook signature — delivery=%s", x_github_delivery)
         raise HTTPException(status_code=401, detail="Invalid webhook signature")
 
