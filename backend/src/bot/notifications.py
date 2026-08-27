@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Optional
@@ -132,12 +133,13 @@ def build_deployment_status_embed(event: DeploymentStatusEvent) -> Optional[disc
     return embed
 
 
-async def send_to_channel(
+async def _send_on_bot_loop(
     bot: discord.Client,
     channel_id: int,
     embed: discord.Embed,
-    retries: int = 2,
+    retries: int,
 ) -> bool:
+    """Runs inside the bot's own event loop — safe to touch discord.py internals here."""
     for attempt in range(retries + 1):
         try:
             channel = bot.get_channel(channel_id)
@@ -149,9 +151,48 @@ async def send_to_channel(
             await channel.send(embed=embed)
             logger.info("Discord notification sent to channel %s", channel_id)
             return True
+        except discord.Forbidden:
+            logger.error(
+                "Missing permissions for channel %s — bot needs View Channel, "
+                "Send Messages and Embed Links",
+                channel_id,
+            )
+            return False
+        except discord.NotFound:
+            logger.error("Channel %s not found — check the configured channel ID", channel_id)
+            return False
         except discord.HTTPException as exc:
             logger.warning("Discord send failed (attempt %d/%d): %s", attempt + 1, retries + 1, exc)
             if attempt == retries:
                 logger.error("Discord notification failed after %d attempts", retries + 1)
                 return False
     return False
+
+
+async def send_to_channel(
+    bot: discord.Client,
+    channel_id: int,
+    embed: discord.Embed,
+    retries: int = 2,
+) -> bool:
+    """Send an embed to a Discord channel.
+
+    The bot runs in a separate thread with its own event loop, while callers
+    (webhook background tasks) run on the FastAPI loop. Awaiting discord.py
+    coroutines across loops breaks aiohttp, so hand the work to the bot's loop.
+    """
+    from src.bot.client import get_bot_loop
+
+    loop = get_bot_loop()
+    if loop is None or not loop.is_running():
+        logger.error("Discord bot loop is not running — cannot send notification")
+        return False
+
+    future = asyncio.run_coroutine_threadsafe(
+        _send_on_bot_loop(bot, channel_id, embed, retries), loop
+    )
+    try:
+        return await asyncio.wrap_future(future)
+    except Exception as exc:
+        logger.error("Failed to dispatch Discord notification: %s", exc, exc_info=True)
+        return False

@@ -60,6 +60,11 @@ def get_bot() -> Optional[GitHubDiscordBot]:
     return _bot
 
 
+def get_bot_loop() -> Optional[asyncio.AbstractEventLoop]:
+    """Event loop the bot thread runs on — notifications must be scheduled onto it."""
+    return _bot_loop
+
+
 async def start_bot() -> None:
     """Start the Discord bot in a background thread with its own event loop.
     Token is loaded from DB (config_service). If no token is set, bot is skipped.
