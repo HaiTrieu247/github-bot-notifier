@@ -65,10 +65,10 @@ backend/
 ## Setup
 
 ```bash
-# 1. Copy và điền env
+# 1. Copy và điền env (ít nhất POSTGRES_PASSWORD, vd: openssl rand -hex 24)
 cp .env.example .env
 
-# 2. Chạy
+# 2. Chạy (gồm cả container postgres)
 docker compose up -d
 
 # Staging (với Nginx HTTPS)
@@ -82,6 +82,25 @@ docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d
 ```
 
 Database tables được tạo tự động khi khởi động (qua `init_db()`). Không cần Alembic.
+
+## Database
+
+PostgreSQL chạy trong container `postgres` (cùng compose với bot), dữ liệu nằm trong named volume `postgres_data`. Port DB không mở ra ngoài, chỉ bot truy cập được qua `bot_network`.
+
+> ⚠️ Không chạy `docker compose down -v`: lệnh này xoá luôn volume dữ liệu.
+
+### Migrate từ NeonDB
+
+Deploy workflow tự chạy `scripts/migrate_from_neon.sh` mỗi lần push. Script chỉ copy dữ liệu khi bảng `app_config` ở DB local còn trống **và** `.env` có URL nguồn (`NEON_DATABASE_URL`, hoặc `DATABASE_URL` cũ trỏ Neon). Các lần sau script tự bỏ qua.
+
+Chạy tay (trên server, trong thư mục project):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --wait postgres
+bash scripts/migrate_from_neon.sh -f docker-compose.yml -f docker-compose.prod.yml
+```
+
+Nếu dump hoặc restore lỗi thì không có gì được ghi (single transaction), lần chạy sau sẽ thử lại.
 
 ## API Endpoints
 
@@ -113,5 +132,7 @@ pytest tests/ -v
 | `GITHUB_TOKEN` | ✅ | GitHub Personal Access Token |
 | `GITHUB_WEBHOOK_SECRET` | ✅ | Webhook HMAC secret |
 | `GITHUB_REPOSITORIES` | ✅ | `owner/repo,...` repos to monitor |
-| `DATABASE_URL` | ✅ | PostgreSQL async URL |
-| `POSTGRES_PASSWORD` | ✅ | Postgres password |
+| `POSTGRES_PASSWORD` | ✅ | Postgres password (chỉ dùng hex/chữ số — nằm trong URL) |
+| `POSTGRES_USER` / `POSTGRES_DB` | | Mặc định `github_bot` |
+| `NEON_DATABASE_URL` | | Nguồn migrate một lần từ NeonDB (fallback: `DATABASE_URL` cũ) |
+| `DATABASE_URL` | | Chỉ dùng khi chạy backend ngoài docker compose |

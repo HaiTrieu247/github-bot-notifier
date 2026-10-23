@@ -1,7 +1,8 @@
 """Database engine, session factory, init_db — Blueprint pattern (no Alembic).
 
-Uses NeonDB (cloud PostgreSQL) via DATABASE_URL from environment.
-SSL is required for NeonDB connections.
+Uses PostgreSQL via DATABASE_URL from environment — normally the self-hosted
+postgres service in docker-compose.yml. SSL is enabled only when the URL asks
+for it (sslmode=require) or points at NeonDB.
 """
 
 from __future__ import annotations

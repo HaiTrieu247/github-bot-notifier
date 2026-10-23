@@ -8,6 +8,9 @@
 
 services:
 
+  postgres:
+    restart: always
+
   bot:
     environment:
       APP_ENV: production

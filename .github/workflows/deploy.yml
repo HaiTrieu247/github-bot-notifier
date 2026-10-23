@@ -35,11 +35,26 @@ jobs:
               echo ".env already exists, skipping copy"
             fi
 
+            echo "=== Checking POSTGRES_PASSWORD in .env ==="
+            if ! grep -qE '^POSTGRES_PASSWORD=.+' .env; then
+              echo "POSTGRES_PASSWORD not set — generating one"
+              # Make sure we don't glue onto a last line without trailing newline
+              [ -z "$(tail -c 1 .env)" ] || echo >> .env
+              echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)" >> .env
+            fi
+
             echo "=== Rebuilding bot image ==="
             docker compose -f docker-compose.yml -f docker-compose.prod.yml build --no-cache bot
 
+            echo "=== Starting postgres ==="
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --wait postgres
+
+            echo "=== Migrating data from NeonDB (one-time, skipped once done) ==="
+            bash scripts/migrate_from_neon.sh -f docker-compose.yml -f docker-compose.prod.yml
+
             echo "=== Restarting bot (zero-downtime swap) ==="
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d  --force-recreate --remove-orphans
+            # postgres is left out on purpose: no need to restart the DB on every deploy
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --force-recreate --remove-orphans bot nginx
 
             echo "=== Waiting for health check ==="
             sleep 15
